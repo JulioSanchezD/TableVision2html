@@ -1,0 +1,50 @@
+modules:
+  - module: inference
+    run: false
+    params:
+      model_name: "ibm-granite/granite-vision-3.2-2b"
+      dataset: "apoidea/pubtabnet-html"
+      num_test_images: 500
+
+  - module: inference
+    run: false
+    params:
+      model_name: "KennethTM/pix2struct-base-table2html"
+      dataset: "apoidea/pubtabnet-html"
+      num_test_images: 500
+
+  - module: granite_vision_finetune
+    run: false
+    params:
+      model_name: "ibm-granite/granite-vision-3.2-2b"
+      dataset: "apoidea/pubtabnet-html"
+      max_seq_length: 1024
+      num_train_images: 5000
+      num_test_images: 250
+      layers_to_tune: ["language_model"]
+      experiment_name: "lang_only"
+      debug: false
+
+  - module: granite_vision_finetune
+    run: false
+    params:
+      model_name: "ibm-granite/granite-vision-3.2-2b"
+      dataset: "apoidea/pubtabnet-html"
+      max_seq_length: 1024
+      num_train_images: 5000
+      num_test_images: 250
+      layers_to_tune: ["vision_model"]
+      experiment_name: "vision_only"
+      debug: false
+
+  - module: granite_vision_finetune
+    run: false
+    params:
+      model_name: "ibm-granite/granite-vision-3.2-2b"
+      dataset: "apoidea/pubtabnet-html"
+      max_seq_length: 1024
+      num_train_images: 5000
+      num_test_images: 250
+      layers_to_tune: ["vision_model", "language_model"]
+      experiment_name: "vision_lang"
+      debug: false
