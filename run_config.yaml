@@ -48,3 +48,11 @@ modules:
       layers_to_tune: ["vision_model", "language_model"]
       experiment_name: "vision_lang"
       debug: false
+
+  - module: inference
+    run: true
+    params:
+      model_name: "ibm-granite/granite-vision-3.2-2b"
+      adapter: "lang_only"
+      dataset: "apoidea/pubtabnet-html"
+      num_test_images: 500

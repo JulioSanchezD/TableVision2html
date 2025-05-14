@@ -30,7 +30,7 @@ def main(model_name: str, dataset: str, num_test_images: int, adapter: str = Non
     # Load model
     if model_name not in MODELS:
         raise Exception(f"Model {model_name} not supported. Supported models are: {list(MODELS.keys())}")
-    model = MODELS[model_name](model_name)
+    model = MODELS[model_name](model_name, adapter=adapter)
     tokenizer = model.processor.tokenizer
 
     # Load previous results
