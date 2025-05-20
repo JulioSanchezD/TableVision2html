@@ -1,4 +1,5 @@
 import json
+import signal
 from typing import List
 from pathlib import Path
 
@@ -40,3 +41,21 @@ def read_jsonl(file_path: str) -> List[dict]:
                 print(f"Error decoding JSON line: {line.strip()}")
                 raise Exception(f"Error decoding JSON line: {str(e)}")
     return data
+
+class TimeoutException(Exception):
+    pass
+
+def timeout(seconds=10):
+    def decorator(func):
+        def _handle_timeout(signum, frame):
+            raise TimeoutException(f"Function call timed out after {seconds} seconds")
+        
+        def wrapper(*args, **kwargs):
+            signal.signal(signal.SIGALRM, _handle_timeout)
+            signal.alarm(seconds)
+            try:
+                return func(*args, **kwargs)
+            finally:
+                signal.alarm(0)  # Disable alarm
+        return wrapper
+    return decorator

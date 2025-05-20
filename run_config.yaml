@@ -50,9 +50,16 @@ modules:
       debug: false
 
   - module: inference
-    run: true
+    run: false
     params:
       model_name: "ibm-granite/granite-vision-3.2-2b"
       adapter: "lang_only"
+      dataset: "apoidea/pubtabnet-html"
+      num_test_images: 500
+  
+  - module: inference
+    run: true
+    params:
+      model_name: "meta-llama/llama-3-2-90b-vision-instruct"
       dataset: "apoidea/pubtabnet-html"
       num_test_images: 500

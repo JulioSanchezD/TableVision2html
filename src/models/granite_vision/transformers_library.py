@@ -8,6 +8,7 @@ from transformers import AutoProcessor, AutoModelForVision2Seq, TextIteratorStre
 transformers_logger = logging.get_logger("transformers")
 transformers_logger.setLevel(logging.ERROR)
 
+
 class LLM:
 
     ADAPTERS_PATH: str = "src/models/granite_vision/checkpoints/{}/checkpoint-1000"
