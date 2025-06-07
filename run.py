@@ -9,6 +9,7 @@ logging.basicConfig(level='INFO', format='%(asctime)s - %(levelname)s - %(messag
 
 # Importing main functions from the modules
 from src.inference import main as inference
+from src.merge_and_upload import main as merge_and_upload
 from src.models.granite_vision.finetune import main as granite_vision_finetune
 
 
@@ -29,7 +30,8 @@ def run(config_path: str):
     # Map module names to their functions
     module_map = {
         'inference': lambda params: inference(**params),
-        'granite_vision_finetune': lambda params: granite_vision_finetune(**params),
+        'merge_and_upload': lambda params: merge_and_upload(**params),
+        'granite_vision_finetune': lambda params: granite_vision_finetune(**params)
     }
 
     try:

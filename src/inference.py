@@ -23,11 +23,16 @@ MODELS = {
     "meta-llama/llama-3-2-90b-vision-instruct": LlamaVisionLLM
 }
 
-@timeout(seconds=60)
-def predict(model, img, max_new_tokens):
-    return model.predict(img, max_new_tokens=max_new_tokens)
+@timeout(seconds=360)
+def predict(model, img, max_new_tokens, query):
+    return model.predict(img, max_new_tokens=max_new_tokens, query=query)
 
-def main(model_name: str, dataset: str, num_test_images: int, adapter: str = None) -> None:
+def main(model_name: str, 
+         dataset: str, 
+         system_message: str,
+         num_test_images: int, 
+         adapter: str = None
+         ) -> None:
     # Load dataset as a streaming iterable
     test_ds = load_dataset(dataset, split='validation', streaming=True)
     test_ds_iter = iter(test_ds)
@@ -60,7 +65,7 @@ def main(model_name: str, dataset: str, num_test_images: int, adapter: str = Non
 
         start_time = timer()
         try:
-            output = predict(model, img, max_new_tokens=max_tokens)
+            output = predict(model, img, max_new_tokens=max_tokens, query=system_message)
         except Exception as e:
             print(f"Error processing image {img_id}: {e}")
             continue

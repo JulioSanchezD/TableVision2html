@@ -1,3 +1,4 @@
+import re
 import json
 import signal
 from typing import List
@@ -59,3 +60,13 @@ def timeout(seconds=10):
                 signal.alarm(0)  # Disable alarm
         return wrapper
     return decorator
+
+
+def extract_html_table(html):
+    """Extracts html table from text"""
+    match = re.search(r'<table\b.*?</table>', html, re.DOTALL | re.IGNORECASE)
+    if match:
+        table_html = match.group()
+        return table_html
+    else:
+        return None

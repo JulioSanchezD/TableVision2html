@@ -1,5 +1,6 @@
+import os
+import glob
 import torch
-import warnings
 from peft import PeftModel
 from threading import Thread
 from transformers.utils import logging
@@ -11,7 +12,7 @@ transformers_logger.setLevel(logging.ERROR)
 
 class LLM:
 
-    ADAPTERS_PATH: str = "src/models/granite_vision/checkpoints/{}/checkpoint-1000"
+    ADAPTERS_BASE_PATH: str = "src/models/granite_vision/checkpoints/{}"
 
     def __init__(self, model_name, adapter: str = None):
         if adapter:
@@ -35,7 +36,7 @@ class LLM:
 
         # Load and merge LoRA adapter
         if adapter:
-            adapter_path = self.ADAPTERS_PATH.format(adapter)
+            adapter_path = self._find_adapter_path(adapter)
             self.model = PeftModel.from_pretrained(
                 self.model, 
                 adapter_path, 
@@ -58,9 +59,21 @@ class LLM:
         elif torch.cuda.is_available():
             return 'cuda', torch.cuda.get_device_name(torch.cuda.current_device())
         return 'cpu', "CPU"
+    
+    def _find_adapter_path(self, adapter_name: str) -> str:
+        base_path = self.ADAPTERS_BASE_PATH.format(adapter_name)
+        pattern = os.path.join(base_path, "checkpoint-*")
+        checkpoint_dirs = glob.glob(pattern)
+
+        if not checkpoint_dirs:
+            return None
+
+        # Sort by number if needed
+        checkpoint_dirs.sort(key=lambda x: int(x.split('-')[-1]))
+        return checkpoint_dirs[-1]  # Return the latest checkpoint
         
     
-    def predict(self, img, max_new_tokens: int, query="Convert the user's image to HTML."):
+    def predict(self, img, max_new_tokens: int, query="Convert the user's image to HTML"):
         # Prepare prompt
         conversation = [
             {

@@ -58,8 +58,64 @@ modules:
       num_test_images: 500
   
   - module: inference
-    run: true
+    run: false
     params:
       model_name: "meta-llama/llama-3-2-90b-vision-instruct"
       dataset: "apoidea/pubtabnet-html"
       num_test_images: 500
+
+  - module: granite_vision_finetune
+    run: false
+    params:
+      model_name: "ibm-granite/granite-vision-3.2-2b"
+      dataset: "apoidea/pubtabnet-html"
+      system_message: "Convert table to HTML (<table> ... </table>)"
+      max_seq_length: 1024
+      gradient_accumulation_steps: 4
+      num_train_images: 10000
+      num_test_images: 250
+      layers_to_tune: ["language_model"]
+      experiment_name: "lang_table_only_3"
+      debug: false
+      resume_id: "scbwtshi"
+      rewind_step: 1950
+
+  - module: inference
+    run: false
+    params:
+      model_name: "ibm-granite/granite-vision-3.2-2b"
+      adapter: "lang_table_only_2"
+      dataset: "apoidea/pubtabnet-html"
+      system_message: "Convert table to HTML (<table> ... </table>)"
+      num_test_images: 500
+
+  - module: granite_vision_finetune
+    run: false
+    params:
+      model_name: "ibm-granite/granite-vision-3.2-2b"
+      dataset: "apoidea/pubtabnet-html"
+      system_message: "Convert table to HTML (<table> ... </table>)"
+      max_seq_length: 1024
+      gradient_accumulation_steps: 8
+      num_train_images: 10000
+      num_test_images: 250
+      layers_to_tune: ["language_model"]
+      experiment_name: "lang_table_only_4"
+      debug: false
+      resume_id: "3rpbnm5r"
+      rewind_step: 86
+
+  - module: inference
+    run: false
+    params:
+      model_name: "ibm-granite/granite-vision-3.2-2b"
+      adapter: "lang_table_only_4"
+      dataset: "apoidea/pubtabnet-html"
+      system_message: "Convert table to HTML (<table> ... </table>)"
+      num_test_images: 500
+
+  - module: merge_and_upload
+    run: true
+    params:
+      model_name: "ibm-granite/granite-vision-3.2-2b"
+      adapter_path: "src/models/granite_vision/checkpoints/lang_table_only_4"

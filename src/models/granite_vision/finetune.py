@@ -9,22 +9,23 @@ import gc
 import time
 import torch
 import wandb
-from datasets import load_dataset
-from trl import SFTConfig, SFTTrainer
+from tqdm import tqdm
 from peft import LoraConfig
+from trl import SFTConfig, SFTTrainer
+from datasets import load_dataset, Dataset
+from src.utils.helpers import extract_html_table
 from transformers import AutoProcessor, AutoModelForVision2Seq
 
 
-SYSTEM_MESSAGE = "Convert table to HTML"
 global processor
         
 
-def format_data(sample):
+def format_data(sample, system_message):
     return [
         {
             "role": "system",
             "content": [
-                {"type": "text", "text": SYSTEM_MESSAGE}
+                {"type": "text", "text": system_message}
             ]
         },
         {
@@ -80,7 +81,6 @@ def collate_fn(examples):
     batch["labels"] = labels
     return batch
 
-
 def clear_memory():
     # Delete variables if they exist in the current global scope
     if 'inputs' in globals(): del globals()['inputs']
@@ -104,42 +104,74 @@ def clear_memory():
     print(f"GPU reserved memory: {torch.cuda.memory_reserved() / 1024**3:.2f} GB")
 
 
-def filter_fn(examples, processor, max_seq_length):
-    token_counts = [len(processor.tokenizer.tokenize(html)) for html in examples['html_table']]
-    return [cnt < max_seq_length for cnt in token_counts]
+def load_process_filter_dataset(dataset, max_seq_length, num_train_images, num_test_images, system_message):
+    global processor
+    ds = load_dataset(dataset, split='train', streaming=True)
+    max_html_tokens = max_seq_length - len(processor.tokenizer.tokenize(system_message))
+    num_total_needed = num_train_images + num_test_images
+
+    filtered_samples = []
+    p_bar = tqdm(total=num_total_needed, desc="Filtering dataset samples")
+    for sample in ds:
+        processed = process_and_filter_example(sample, max_html_tokens)
+        if processed:
+            filtered_samples.append(processed)
+            p_bar.update(1)
+        if len(filtered_samples) >= num_total_needed:
+            break
+    p_bar.close()
+
+    # Convert to in-memory dataset
+    ds_filtered = Dataset.from_list(filtered_samples)
+
+    # Split into train/test
+    ds_train = ds_filtered.select(range(num_train_images))
+    ds_test = ds_filtered.select(range(num_train_images, num_total_needed))
+
+    return ds_train, ds_test
+
+
+
+def process_and_filter_example(example, max_html_tokens):
+    global processor
+    extracted_table = extract_html_table(example['html_table'])
+    token_count = len(processor.tokenizer.tokenize(extracted_table))
+    if token_count < max_html_tokens:
+        example['html_table'] = extracted_table
+        return example
+    return None
 
 
 def main(
         model_name: str, 
         dataset: str, 
-        max_seq_length: int, 
+        system_message: str,
+        max_seq_length: int,
+        gradient_accumulation_steps: int, 
         num_train_images: int, 
         num_test_images: int, 
         layers_to_tune: list, 
         experiment_name: str, 
-        debug: bool = False
+        debug: bool = False,
+        resume_id: str = None,
+        rewind_step: int = None
     ):
 
     global processor
-    # Load dataset
-    ds = load_dataset(dataset)['train']
-
-    # Filter dataset for memory requirements
     processor = AutoProcessor.from_pretrained(model_name, use_fast=True)
-    ds = ds.filter(
-        filter_fn, 
-        fn_kwargs={'processor': processor, 'max_seq_length': max_seq_length - len(processor.tokenizer.tokenize(SYSTEM_MESSAGE))}, 
-        batched=True, 
-        batch_size=1000, 
-        num_proc=16
+
+    # Load dataset
+    train_dataset, test_dataset = load_process_filter_dataset(
+        dataset,
+        max_seq_length,
+        num_train_images,
+        num_test_images,
+        system_message
     )
 
-    # Split dataset into train and test
-    train_test = ds.select(range(num_train_images)).train_test_split(test_size=0.2, seed=42)
-
     # Format dataset
-    train_dataset = [format_data(x) for x in train_test['train']]
-    test_dataset = [format_data(x) for x in train_test['test'].select(range(num_test_images))]
+    train_dataset = [format_data(x, system_message) for x in train_dataset]
+    test_dataset = [format_data(x, system_message) for x in test_dataset]
     
     # Load Model and tokenizer
     clear_memory()
@@ -160,8 +192,8 @@ def main(
             and '_proj' in name
         )
     peft_config = LoraConfig(
-        r=8,
-        lora_alpha=16,
+        r=16,
+        lora_alpha=32,
         lora_dropout=0.1,
         target_modules=target_modules,
         use_dora=True,
@@ -174,16 +206,16 @@ def main(
         num_train_epochs=1,
         per_device_train_batch_size=1,
         per_device_eval_batch_size=1,
-        gradient_accumulation_steps=4,
+        gradient_accumulation_steps=gradient_accumulation_steps,
         max_seq_length=max_seq_length,
         warmup_steps=10,
-        learning_rate=5e-4,
+        learning_rate=3e-4,
         weight_decay=0.01,
         logging_strategy="steps",
         eval_strategy='steps',
-        logging_steps=20,
+        logging_steps=25,
         save_strategy="steps",
-        save_steps=20,
+        save_steps=50,
         save_total_limit=1,
         greater_is_better=False,
         load_best_model_at_end=True,
@@ -194,7 +226,8 @@ def main(
         remove_unused_columns=False,
         gradient_checkpointing=True,
         dataset_text_field="",
-        dataset_kwargs={"skip_prepare_dataset": True}
+        dataset_kwargs={"skip_prepare_dataset": True},
+        dataset_num_proc=8
     )
 
     # Setup Trainer
@@ -211,23 +244,36 @@ def main(
     # Login to Weights & Biases
     if not debug:
         wandb.login()
-        run = wandb.init(
-            project=f"granite-vision",
-            name=experiment_name,
-            config={
-                "model_name": model_name,
-                "dataset": dataset,
-                "max_seq_length": max_seq_length,
-                "num_train_images": num_train_images
-            }
-        )
+        config = {
+        "model_name": model_name,
+        "dataset": dataset,
+        "max_seq_length": max_seq_length,
+        "num_train_images": num_train_images
+        }
+
+        init_args = {
+            "project": "granite-vision",
+            "name": experiment_name,
+            "config": config
+        }
+        if resume_id is not None:
+            init_args["id"] = resume_id
+            if rewind_step is not None:
+                init_args["resume_from"] = f"{resume_id}?_step={rewind_step}"
+            else:
+                init_args["resume"] = "must"
+        wandb.init(**init_args)
     else:
         os.environ["WANDB_MODE"] = "offline"
 
     # Train the model
-    trainer.model.print_trainable_parameters()
+    # trainer.model.print_trainable_parameters()
     print(f"Memory footprint: {trainer.model.get_memory_footprint() / (1024 ** 3):.2f} GB\n")
-    trainer.train()
+    if resume_id is None:
+        trainer.evaluate()
+        trainer.train()
+    else:
+        trainer.train(resume_from_checkpoint=True)
     trainer.save_model(training_args.output_dir)
 
 
