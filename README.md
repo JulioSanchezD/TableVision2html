@@ -83,6 +83,10 @@ html = model.predict(image, max_new_tokens=1024, query=prompt)
 
 [JulioSnchezD/granite-vision-3.2-2b-table2html](https://huggingface.co/JulioSnchezD/granite-vision-3.2-2b-table2html)
 
+## Blog Post
+👉 Read the full story behind this project:
+["Fine-Tuning Granite-Vision 2B to Outperform 90B Giants (Table Extraction Task)"](https://medium.com/@julioe.sanchezd/how-i-fine-tuned-granite-vision-2b-to-beat-a-90b-model-insights-and-lessons-learned-ebec8fe8f9fb)
+
 ## Citation
 If you use this model, please cite the work:
 
