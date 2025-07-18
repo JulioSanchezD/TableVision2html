@@ -24,7 +24,11 @@ Around the same time, IBM released Granite-Vision 2B — a vision-language model
 
 One important design choice was the target format: **HTML**. By converting tables into clean HTML code, we obtain a structured and widely supported representation that can be easily converted into other formats. For example, HTML tables can be readily imported into data analysis tools like Pandas as dataframes, making downstream processing and analysis much more efficient.
 
-The original idea was to build a custom dataset by extracting HTML codes containing table tags, rendering these tables as images, and thus creating input (image) – output (HTML table) pairs. Fortunately, I discovered an existing dataset with far more samples than needed for this project: [pubtabnet-html](https://huggingface.co/datasets/apoidea/pubtabnet-html), which provided a solid foundation to train and evaluate the model.
+The original plan was to build a custom dataset by extracting HTML table tags, rendering them as images, and pairing each image with its corresponding HTML code. Fortunately, I found a solution: the [PubTabNet-HTML](https://huggingface.co/datasets/apoidea/pubtabnet-html) dataset, which includes over 568,000 image–HTML pairs, far more than needed for this project.
+
+PubTabNet was developed by IBM and is based on scientific articles from the **PubMed Central Open Access Subset (commercial use collection)**. The tables were extracted by aligning PDF and XML versions of the articles.
+The **annotations** (i.e., the HTML labels) are licensed under the **Community Data License Agreement – Permissive – Version 1.0**, and while **IBM does not own the images**, they are used in accordance with the [PMC Open Access Subset Terms of Use](https://www.ncbi.nlm.nih.gov/pmc/tools/openftlist/). This makes the dataset suitable for both research and commercial applications, provided the license terms are followed.
+
 
 ## Custom Metric: HTML Similarity
 
